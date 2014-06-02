@@ -1,0 +1,102 @@
+myFunc <- function(tweets){
+  library(plyr)
+  library(stringr)
+  library(RJSONIO)
+  library(gtools)
+  # removing punctuation
+  tweets = gsub("[[:punct:]]", "", tweets)
+  # removing control characters
+  tweets = gsub("[[:cntrl:]]", "", tweets)
+  # removing digits
+  tweets = gsub('\\d+', '', tweets)
+  
+  # define error handling function when trying tolower
+  tryTolower = function(x)
+  {
+    # create missing value
+    y = NA
+    # tryCatch error
+    try_error = tryCatch(tolower(x), error=function(e) e)
+    # if not an error
+    if (!inherits(try_error, "error"))
+      y = tolower(x)
+    # result
+    return(y)
+  }
+  # use tryTolower with sapply 
+  tweets = sapply(tweets, tryTolower)
+  
+  dict<-read.csv("/home/arjun/Desktop/twa/sentiment analysis/anew-1999/all.csv")
+  temp<-vector()
+  temp1<-vector()
+  num=1
+  Vm<-vector()
+  Am<-vector()
+  scores<-vector()
+  #tweetCol <- paste0(tweets,collapse='')
+  for(tweet in tweets){
+    word.list = str_split(tweet, "\\s+")
+    words = unlist(word.list)
+    i<-1
+    for(word in words){
+      ans = match(word,dict$Description,nomatch=-1)
+      if(ans==-1){
+        #print(-1)
+      }else{
+        temp[i]<-dict$Valence.Mean[ans]
+        temp1[i]<-dict$Arousal.Mean[ans]
+        i<-i+1        
+      }
+    }
+    Vm[num]<-mean(temp)
+    Am[num]<-mean(temp1)
+    if(!is.na(Vm[num])){
+      if(Vm[num]<5){
+        scores[num]=-1
+      }else if(Vm[num]==5){
+        scores[num]=0
+      }else{
+        scores[num]=1
+      }
+    }
+    num<-num+1
+  }
+  myDF = data.frame(tweet=tweets, valence_mean=Vm,arousal_mean=Am,scores=scores)
+  #writeLines(toJSON(myDF),"afile.json")
+  #writeLines(toJSON(as.data.frame(t(myDF))),"bfile.json")
+  myDF<-myDF[complete.cases(myDF),]
+  modified <- unname(apply(myDF, 1, function(x) as.data.frame(t(x))))  
+  writeLines((toJSON(modified)),"scatterPlot.json")
+  #print(tweetCol)
+  #print(word.count(tweetCol))
+  #return(myDF)
+  pieChart(myDF)
+  heatMap(myDF)
+  
+}
+
+
+pieChart<-function(basicDF){
+  frequencies<-as.data.frame(table(basicDF[4]))
+  temp<-data.frame(var=frequencies$Var1, count=frequencies$Freq)
+  write.csv(temp,file="pieChart.csv",row.names=FALSE)
+  #modified <- unname(apply(temp, 1, function(x) as.data.frame(t(x))))  
+  #writeLines((toJSON(modified)),"pieChart.json")
+}
+
+heatMap<-function(basicDF){
+  xyrange<-permutations(n=8,r=2,v=0:7,repeats.allowed=TRUE)
+  #freqvals<-rep.int(0,64)
+  tempFreqs<-(1:100)[sort(runif(64),index.return=TRUE)$ix]
+  heatMap<-data.frame(x=xyrange[,1],y=xyrange[,2],frequency=tempFreqs)
+  #for(row in basicDF){
+    #if(row[2]>5.5 && row[2]<8.5){
+    #  heatMap[1,3]<-heatMap[1,3]+1
+    #}
+  #}
+  #print(rownames(basicDF))
+  #print(heatMap)
+  #modified <- unname(apply(heatMap, 1, function(x) as.data.frame(t(x))))  
+  write.csv(heatMap,file="heatMap.csv",row.names=FALSE)
+  #writeLines((toJSON(modified)),"heatMap.json")
+}
